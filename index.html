@@ -132,6 +132,12 @@ button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
 .item.on { border-color: var(--berry); background: #FFE6EC; }
 .item.locked { opacity: 0.75; }
 .wallet { font-family: var(--font-display); font-size: 18px; }
+.face-panel { display: flex; flex-direction: column; gap: 12px; }
+.face-panel input[type=file] { display: none; }
+.face-panel label.btn { display: block; }
+.slider { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; font-size: 14px; text-align: left; }
+.slider input { width: 100%; accent-color: var(--berry); }
+.face-note { font-size: 13px; opacity: 0.8; }
 .toast {
   position: absolute; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%); background: var(--cocoa); color: #fff; border-radius: 999px;
@@ -209,8 +215,21 @@ button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
       <div class="shop-tabs" role="tablist">
         <button class="tab" id="tabFur" role="tab" aria-selected="true">털 색깔</button>
         <button class="tab" id="tabHat" role="tab" aria-selected="false">머리 장식</button>
+        <button class="tab" id="tabFace" role="tab" aria-selected="false">내 사진</button>
       </div>
       <div class="shop-grid" id="shopGrid"></div>
+      <div class="face-panel" id="facePanel" hidden>
+        <p>사진을 고르면 토끼 얼굴 자리에 들어가요. 얼굴이 가운데 동그라미에 오도록 아래에서 맞춰 주세요.</p>
+        <label class="btn soft" for="faceFile">사진 고르기</label>
+        <input type="file" id="faceFile" accept="image/*">
+        <div id="faceControls" hidden>
+          <div class="slider"><span>크기</span><input type="range" id="faceZoom" min="1" max="4" step="0.05" value="1.4"></div>
+          <div class="slider"><span>좌우</span><input type="range" id="faceX" min="-1" max="1" step="0.02" value="0"></div>
+          <div class="slider"><span>위아래</span><input type="range" id="faceY" min="-1" max="1" step="0.02" value="-0.2"></div>
+          <button class="btn soft" id="faceClear" style="margin-top:10px;width:100%">토끼 얼굴로 돌아가기</button>
+        </div>
+        <p class="face-note">사진은 이 휴대폰 안에만 저장돼요. 다른 곳으로 보내지 않아요.</p>
+      </div>
       <button class="btn" id="shopBack">다 꾸몄어요</button>
     </div>
   </div>
@@ -229,6 +248,23 @@ button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
   const save = { best: 0, stars: 0, owned: ['white', 'none', 'ribbon'], fur: 'white', hat: 'ribbon' };
   try { Object.assign(save, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} };
+
+  // ---------- 내 사진 얼굴 ----------
+  const FACE_KEY = 'bunnyBasket.face';
+  let face = { src: null, zoom: 1.4, x: 0, y: -0.2 }, faceImg = null;
+  try { Object.assign(face, JSON.parse(localStorage.getItem(FACE_KEY) || '{}')); } catch (e) {}
+  function loadFaceImg() {
+    faceImg = null;
+    if (!face.src) return;
+    const img = new Image();
+    img.onload = () => { faceImg = img; };
+    img.src = face.src;
+  }
+  function persistFace() {
+    try { localStorage.setItem(FACE_KEY, JSON.stringify(face)); return true; }
+    catch (e) { return false; }
+  }
+  loadFaceImg();
 
   const FURS = [
     { id: 'white', name: '하양', price: 0, body: '#FFFFFF', shade: '#F1E6E6' },
@@ -487,6 +523,14 @@ button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
     ctx.beginPath(); ctx.ellipse(0, -14, 30, 26, 0, 0, 6.29); ctx.fill(); ctx.stroke();
     // 머리
     ctx.beginPath(); ctx.arc(0, -50 + bob, 27, 0, 6.29); ctx.fill(); ctx.stroke();
+    if (faceImg) {
+      drawPhotoFace(bob, hurt);
+      drawHat(bob);
+      drawBasket(fur);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+      return;
+    }
     ctx.fillStyle = fur.shade;
     ctx.beginPath(); ctx.ellipse(0, -38 + bob, 12, 7, 0, 0, 6.29); ctx.fill();
 
@@ -518,7 +562,27 @@ button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
     ctx.stroke();
 
     drawHat(bob);
+    drawBasket(fur);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
 
+  function drawPhotoFace(bob, hurt) {
+    const r = 27, cy = -50 + bob;
+    const w = faceImg.width, h = faceImg.height;
+    const side = Math.min(w, h) / face.zoom;
+    const sx = (w - side) / 2 * (1 + face.x);
+    const sy = (h - side) / 2 * (1 + face.y);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(0, cy, r - 1, 0, 6.29); ctx.clip();
+    ctx.drawImage(faceImg, sx, sy, side, side, -r, cy - r, r * 2, r * 2);
+    if (hurt) { ctx.fillStyle = 'rgba(120,120,160,0.35)'; ctx.fillRect(-r, cy - r, r * 2, r * 2); }
+    ctx.restore();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#5E3527';
+    ctx.beginPath(); ctx.arc(0, cy, r, 0, 6.29); ctx.stroke();
+  }
+
+  function drawBasket(fur) {
     // 바구니
     ctx.lineWidth = 2.5; ctx.strokeStyle = '#5E3527';
     ctx.fillStyle = '#E8A86B';
@@ -534,9 +598,6 @@ button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
     ctx.fillStyle = fur.body;
     ctx.beginPath(); ctx.ellipse(-30, -22, 8, 6, 0, 0, 6.29); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.ellipse(30, -22, 8, 6, 0, 0, 6.29); ctx.fill(); ctx.stroke();
-
-    ctx.restore();
-    ctx.globalAlpha = 1;
   }
 
   function drawHat(bob) {
@@ -708,6 +769,12 @@ button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
     $('wallet').textContent = '가진 별 ⭐ ' + save.stars;
     $('tabFur').setAttribute('aria-selected', shopTab === 'fur');
     $('tabHat').setAttribute('aria-selected', shopTab === 'hat');
+    $('tabFace').setAttribute('aria-selected', shopTab === 'face');
+    $('shopGrid').hidden = shopTab === 'face';
+    $('facePanel').hidden = shopTab !== 'face';
+    $('faceControls').hidden = !face.src;
+    $('faceZoom').value = face.zoom; $('faceX').value = face.x; $('faceY').value = face.y;
+    if (shopTab === 'face') return;
     const list = shopTab === 'fur' ? FURS : HATS;
     const equipped = shopTab === 'fur' ? save.fur : save.hat;
     const grid = $('shopGrid'); grid.innerHTML = '';
@@ -755,6 +822,39 @@ button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
   });
   $('tabFur').addEventListener('click', () => { shopTab = 'fur'; renderShop(); });
   $('tabHat').addEventListener('click', () => { shopTab = 'hat'; renderShop(); });
+  $('tabFace').addEventListener('click', () => { shopTab = 'face'; renderShop(); });
+
+  $('faceFile').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      // 저장 공간을 아끼려고 작게 줄여서 보관해요
+      const max = 360, k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      face = { src: c.toDataURL('image/jpeg', 0.85), zoom: 1.4, x: 0, y: -0.2 };
+      loadFaceImg();
+      if (!persistFace()) toast('이 브라우저에는 사진을 저장할 수 없어서, 지금만 보여요');
+      else toast('얼굴을 바꿨어요!');
+      player.happy = 0.6;
+      renderShop();
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast('이 사진은 열 수 없어요. 다른 사진을 골라 주세요'); };
+    img.src = url;
+  });
+  for (const [id, key] of [['faceZoom', 'zoom'], ['faceX', 'x'], ['faceY', 'y']]) {
+    $(id).addEventListener('input', (e) => { face[key] = parseFloat(e.target.value); persistFace(); });
+  }
+  $('faceClear').addEventListener('click', () => {
+    face = { src: null, zoom: 1.4, x: 0, y: -0.2 }; faceImg = null;
+    try { localStorage.removeItem(FACE_KEY); } catch (e) {}
+    toast('토끼 얼굴로 돌아왔어요'); renderShop();
+  });
 
   window.addEventListener('resize', resize);
   resize(); initClouds(); refreshBest();
