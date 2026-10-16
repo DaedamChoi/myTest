@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<style>body{margin:0}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>토끼의 간식 바구니</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#FFD6E0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<style>
+/* Layout: one full-screen canvas scene (bunny at the bottom), HUD pinned to the top, menus as floating cards over the sky. */
+:root {
+  --milk: #FFF7F2;
+  --berry: #F2577E;
+  --berry-deep: #C93A62;
+  --cream: #FFE7A0;
+  --cocoa: #5E3527;
+  --mint: #7FD3BE;
+  --card: rgba(255, 250, 247, 0.94);
+  --shadow: rgba(94, 53, 39, 0.18);
+  --font-display: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  background: #FFD6E0;
+  color: var(--cocoa);
+  font-family: var(--font-body);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { position: relative; height: 100%; overflow: hidden; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-block: calc(10px + env(safe-area-inset-top, 0px)) 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: none;
+  font-family: var(--font-display);
+}
+.hud .pill {
+  background: var(--card); border-radius: 999px; padding: 6px 14px;
+  box-shadow: 0 3px 0 var(--shadow); font-size: 18px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.hud .lives { letter-spacing: 1px; font-size: 16px; }
+.hud .right { display: flex; gap: 8px; align-items: center; }
+.hud button { pointer-events: auto; }
+.combo {
+  position: absolute; left: 0; right: 0; top: calc(60px + env(safe-area-inset-top, 0px));
+  text-align: center; font-family: var(--font-display); font-size: 22px; color: var(--berry-deep);
+  text-shadow: 0 2px 0 #fff; pointer-events: none;
+}
+.fever {
+  position: absolute; left: 0; right: 0; top: calc(90px + env(safe-area-inset-top, 0px));
+  text-align: center; font-family: var(--font-display); font-size: 26px; color: #fff;
+  text-shadow: 0 2px 0 var(--berry), 0 0 12px var(--berry); pointer-events: none;
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
+@keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+
+.iconbtn {
+  width: 40px; height: 40px; border-radius: 50%; border: 0;
+  background: var(--card); color: var(--cocoa); box-shadow: 0 3px 0 var(--shadow);
+  font-family: var(--font-display); font-size: 18px; cursor: pointer;
+}
+
+.overlay {
+  position: absolute; left: 0; right: 0; top: 0;
+  display: flex; justify-content: center;
+  padding-block: calc(70px + env(safe-area-inset-top, 0px)) 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.card {
+  width: 100%; max-width: 380px; background: var(--card); border-radius: 28px;
+  padding: 22px 20px; box-shadow: 0 6px 0 var(--shadow), 0 18px 40px rgba(201, 58, 98, 0.15);
+  display: flex; flex-direction: column; gap: 14px; text-align: center;
+  max-height: calc(100vh - 260px); overflow-y: auto;
+}
+.card h1, .card h2 { margin: 0; font-family: var(--font-display); font-weight: 400; text-wrap: balance; }
+.card h1 { font-size: 34px; color: var(--berry); line-height: 1.15; text-shadow: 0 3px 0 var(--cream); }
+.card h2 { font-size: 26px; color: var(--berry); }
+.card p { margin: 0; font-size: 15px; line-height: 1.6; }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 14px; text-align: left; }
+.legend span { white-space: nowrap; }
+.legend .bad { color: var(--berry-deep); }
+
+.btns { display: flex; flex-direction: column; gap: 10px; }
+.btn {
+  border: 0; border-radius: 18px; padding: 14px 16px; cursor: pointer;
+  font-family: var(--font-display); font-size: 20px;
+  background: var(--berry); color: #fff; box-shadow: 0 5px 0 var(--berry-deep);
+  transition: transform 0.08s;
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--berry-deep); }
+.btn.soft { background: var(--cream); color: var(--cocoa); box-shadow: 0 5px 0 #E3C46E; }
+.btn.soft:active { box-shadow: 0 2px 0 #E3C46E; }
+button:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 2px; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--milk); border-radius: 16px; padding: 10px 4px; }
+.stat b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 24px; color: var(--berry); font-variant-numeric: tabular-nums; }
+.stat small { font-size: 12px; }
+.newbest { font-family: var(--font-display); color: var(--berry); font-size: 18px; }
+
+.shop-tabs { display: flex; gap: 8px; justify-content: center; }
+.tab {
+  flex: 1; border: 2px solid var(--berry); background: transparent; color: var(--berry);
+  border-radius: 14px; padding: 8px; font-family: var(--font-display); font-size: 16px; cursor: pointer;
+}
+.tab[aria-selected="true"] { background: var(--berry); color: #fff; }
+.shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.item {
+  border: 2px solid transparent; background: var(--milk); border-radius: 16px;
+  padding: 10px 4px 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font-family: var(--font-body); color: var(--cocoa); font-size: 13px;
+}
+.item .sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(94,53,39,0.15); }
+.item .ic { font-size: 26px; line-height: 30px; height: 30px; }
+.item .price { font-family: var(--font-display); font-size: 13px; color: var(--berry-deep); }
+.item.on { border-color: var(--berry); background: #FFE6EC; }
+.item.locked { opacity: 0.75; }
+.wallet { font-family: var(--font-display); font-size: 18px; }
+.toast {
+  position: absolute; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%); background: var(--cocoa); color: #fff; border-radius: 999px;
+  padding: 8px 16px; font-size: 14px; white-space: nowrap; pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) { .fever { animation: none; } }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <canvas id="cv" aria-label="게임 화면"></canvas>
+
+  <div class="hud" id="hud" hidden>
+    <div class="pill" id="score">0점</div>
+    <div class="right">
+      <div class="pill lives" id="lives" aria-label="남은 하트"></div>
+      <div class="pill" id="starsHud">⭐ 0</div>
+      <button class="iconbtn" id="pauseBtn" aria-label="일시정지">II</button>
+    </div>
+  </div>
+  <div class="combo" id="combo" hidden></div>
+  <div class="fever" id="fever" hidden>무지개 피버!</div>
+
+  <div class="overlay" id="startScreen">
+    <div class="card">
+      <h1>토끼의<br>간식 바구니</h1>
+      <p>화면을 손가락으로 좌우로 밀어서<br>하늘에서 떨어지는 간식을 받아요!</p>
+      <div class="legend">
+        <span>🍬 🍓 🧁 맛있는 간식</span>
+        <span>⭐ 별 (꾸미기에 써요)</span>
+        <span>💖 하트 하나 더</span>
+        <span>🌈 무지개 피버</span>
+        <span class="bad">🐝 꿀벌은 피하기</span>
+        <span class="bad">⛈️ 먹구름도 피하기</span>
+      </div>
+      <div class="btns">
+        <button class="btn" id="playBtn">시작하기</button>
+        <button class="btn soft" id="shopBtn1">토끼 꾸미기</button>
+      </div>
+      <p id="bestLine"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseScreen" hidden>
+    <div class="card">
+      <h2>잠깐 쉬는 중</h2>
+      <div class="btns">
+        <button class="btn" id="resumeBtn">계속하기</button>
+        <button class="btn soft" id="quitBtn">처음으로</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overScreen" hidden>
+    <div class="card">
+      <h2 id="overTitle">바구니가 꽉 찼어요!</h2>
+      <div class="newbest" id="newBest" hidden>새로운 최고 기록!</div>
+      <div class="stats">
+        <div class="stat"><b id="oScore">0</b><small>점수</small></div>
+        <div class="stat"><b id="oBest">0</b><small>최고 기록</small></div>
+        <div class="stat"><b id="oStars">0</b><small>모은 별</small></div>
+      </div>
+      <div class="btns">
+        <button class="btn" id="againBtn">다시 하기</button>
+        <button class="btn soft" id="shopBtn2">토끼 꾸미기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="shopScreen" hidden>
+    <div class="card">
+      <h2>토끼 꾸미기</h2>
+      <div class="wallet" id="wallet">⭐ 0</div>
+      <div class="shop-tabs" role="tablist">
+        <button class="tab" id="tabFur" role="tab" aria-selected="true">털 색깔</button>
+        <button class="tab" id="tabHat" role="tab" aria-selected="false">머리 장식</button>
+      </div>
+      <div class="shop-grid" id="shopGrid"></div>
+      <button class="btn" id="shopBack">다 꾸몄어요</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+  // ---------- 저장 ----------
+  const KEY = 'bunnyBasket.v1';
+  const save = { best: 0, stars: 0, owned: ['white', 'none', 'ribbon'], fur: 'white', hat: 'ribbon' };
+  try { Object.assign(save, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} };
+
+  const FURS = [
+    { id: 'white', name: '하양', price: 0, body: '#FFFFFF', shade: '#F1E6E6' },
+    { id: 'peach', name: '복숭아', price: 10, body: '#FFD9C7', shade: '#F5BFA8' },
+    { id: 'lavender', name: '라벤더', price: 20, body: '#E4D7FF', shade: '#CDBBF2' },
+    { id: 'mint', name: '민트', price: 20, body: '#CFF3E6', shade: '#A9E2CF' },
+    { id: 'choco', name: '초코', price: 30, body: '#B98A72', shade: '#9C6F59' },
+    { id: 'gold', name: '반짝 금빛', price: 60, body: '#FFE9A8', shade: '#F2CF6B' },
+  ];
+  const HATS = [
+    { id: 'none', name: '없음', price: 0, ic: '·' },
+    { id: 'ribbon', name: '리본', price: 0, ic: '🎀' },
+    { id: 'flower', name: '꽃 화관', price: 15, ic: '🌸' },
+    { id: 'star', name: '별 머리핀', price: 20, ic: '🌟' },
+    { id: 'crown', name: '왕관', price: 40, ic: '👑' },
+    { id: 'heart', name: '하트 안경', price: 50, ic: '💗' },
+  ];
+
+  // ---------- 소리 ----------
+  let actx = null, soundOn = true;
+  function beep(freq, dur, type = 'sine', vol = 0.12) {
+    if (!soundOn) return;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g).connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) {}
+  }
+  const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- 화면 크기 ----------
+  let W = 0, H = 0, dpr = 1, unit = 1;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    unit = Math.max(0.8, Math.min(1.3, Math.min(W / 400, H / 720)));
+    player.y = H - 46 * unit;
+    player.x = Math.min(Math.max(player.x || W / 2, 40), W - 40);
+    player.tx = player.x;
+  }
+
+  // ---------- 상태 ----------
+  const player = { x: 0, y: 0, tx: 0, hurt: 0, happy: 0, tilt: 0 };
+  let state = 'menu'; // menu | play | pause | over
+  let items = [], parts = [], clouds = [];
+  let score = 0, lives = 3, combo = 0, level = 1, runStars = 0;
+  let spawnT = 0, feverT = 0, shake = 0, time = 0, blinkT = 2;
+
+  const TYPES = {
+    candy:   { e: '🍬', pts: 10, w: 30 },
+    berry:   { e: '🍓', pts: 15, w: 26 },
+    cake:    { e: '🧁', pts: 25, w: 12 },
+    star:    { e: '⭐', pts: 20, w: 10, star: 1 },
+    heart:   { e: '💖', pts: 5,  w: 3,  life: 1 },
+    rainbow: { e: '🌈', pts: 30, w: 1.6, fever: 1 },
+    bee:     { e: '🐝', bad: 1, w: 9 },
+    storm:   { e: '⛈️', bad: 1, w: 7 },
+  };
+
+  function pickType() {
+    const list = Object.entries(TYPES).filter(([k, t]) => {
+      if (feverT > 0) return !t.bad && k !== 'rainbow';
+      if (k === 'heart' && lives >= 5) return false;
+      return true;
+    });
+    const weight = (t) => t.bad ? t.w * (1 + (level - 1) * 0.22) : t.w;
+    let total = list.reduce((s, [, t]) => s + weight(t), 0);
+    let r = Math.random() * total;
+    for (const [k, t] of list) { r -= weight(t); if (r <= 0) return k; }
+    return 'candy';
+  }
+
+  function spawn() {
+    const k = pickType();
+    const size = 38 * unit;
+    items.push({
+      k, t: TYPES[k], x: size + Math.random() * (W - size * 2), y: -size,
+      vy: (150 + level * 20 + Math.random() * 60) * (H / 720) * (feverT > 0 ? 1.15 : 1),
+      size, rot: (Math.random() - 0.5) * 0.6, vr: (Math.random() - 0.5) * 2,
+      phase: Math.random() * 6.28, baseX: 0,
+    });
+    items[items.length - 1].baseX = items[items.length - 1].x;
+  }
+
+  function addText(x, y, text, color) {
+    parts.push({ x, y, vx: 0, vy: -60, life: 0.9, max: 0.9, text, color });
+  }
+  function burst(x, y, colors, n = 10) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = 80 + Math.random() * 160;
+      parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.7, max: 0.7,
+        r: 3 + Math.random() * 4, color: colors[i % colors.length] });
+    }
+  }
+
+  // ---------- 진행 ----------
+  function startGame() {
+    items = []; parts = [];
+    score = 0; lives = 3; combo = 0; level = 1; runStars = 0;
+    spawnT = 0.6; feverT = 0; player.hurt = 0;
+    state = 'play';
+    show(null);
+    $('hud').hidden = false;
+    updateHud();
+    beep(660, 0.12); setTimeout(() => beep(880, 0.15), 110);
+  }
+
+  function endGame() {
+    state = 'over';
+    const isBest = score > save.best;
+    if (isBest) save.best = score;
+    save.stars += runStars;
+    persist();
+    $('oScore').textContent = score;
+    $('oBest').textContent = save.best;
+    $('oStars').textContent = '+' + runStars;
+    $('newBest').hidden = !isBest || score === 0;
+    $('overTitle').textContent = score >= 1000 ? '간식 파티 대성공!' : score >= 400 ? '배부른 토끼가 됐어요!' : '조금 더 받아볼까요?';
+    $('combo').hidden = true; $('fever').hidden = true;
+    show('overScreen');
+    beep(520, 0.18, 'triangle'); setTimeout(() => beep(390, 0.3, 'triangle'), 160);
+  }
+
+  function catchItem(it) {
+    const t = it.t;
+    if (t.bad) {
+      if (player.hurt > 0) return;
+      lives--; combo = 0; player.hurt = 1.1; shake = 0.35;
+      burst(it.x, it.y, ['#7a7a8c', '#b9b9c9', '#ffffff'], 8);
+      addText(it.x, it.y - 20, it.k === 'bee' ? '앗, 따가워!' : '으슬으슬…', '#6b6b80');
+      beep(180, 0.25, 'square', 0.08); buzz(120);
+      updateHud();
+      if (lives <= 0) endGame();
+      return;
+    }
+    combo++;
+    const mult = (1 + Math.floor(combo / 10)) * (feverT > 0 ? 2 : 1);
+    const pts = t.pts * mult;
+    score += pts;
+    player.happy = 0.35;
+    if (t.star) { runStars++; }
+    if (t.life) { lives = Math.min(5, lives + 1); addText(it.x, it.y - 44, '하트 +1', '#F2577E'); }
+    if (t.fever) { feverT = 6; beep(1046, 0.3, 'triangle'); }
+    addText(it.x, it.y - 20, '+' + pts, feverT > 0 ? '#C93A62' : '#5E3527');
+    burst(it.x, it.y, t.star ? ['#FFD34D', '#FFF1A8'] : ['#F2577E', '#FFB3C6', '#FFE7A0', '#7FD3BE'], t.fever ? 22 : 9);
+    beep(520 + Math.min(combo, 20) * 30, 0.09, 'triangle');
+    buzz(12);
+    const newLevel = 1 + Math.floor(score / 250);
+    if (newLevel > level) { level = newLevel; addText(W / 2, H * 0.35, '레벨 ' + level + '!', '#C93A62'); }
+    updateHud();
+  }
+
+  function updateHud() {
+    $('score').textContent = score.toLocaleString('ko-KR') + '점';
+    $('lives').textContent = '♥'.repeat(Math.max(lives, 0)) + '♡'.repeat(Math.max(0, 3 - lives));
+    $('lives').style.color = '#F2577E';
+    $('starsHud').textContent = '⭐ ' + runStars;
+    const c = $('combo');
+    if (combo >= 5) { c.hidden = false; c.textContent = combo + ' 콤보' + (combo >= 10 ? ' ×' + (1 + Math.floor(combo / 10)) : ''); }
+    else c.hidden = true;
+  }
+
+  // ---------- 그리기 ----------
+  function initClouds() {
+    clouds = [];
+    for (let i = 0; i < 5; i++) clouds.push({ x: Math.random() * 1.2 - 0.1, y: 0.12 + Math.random() * 0.5, s: 0.6 + Math.random() * 0.8, v: 0.006 + Math.random() * 0.01 });
+  }
+  function drawCloud(x, y, s) {
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.arc(x, y, 22 * s, 0, 6.29);
+    ctx.arc(x + 24 * s, y - 10 * s, 26 * s, 0, 6.29);
+    ctx.arc(x + 52 * s, y, 20 * s, 0, 6.29);
+    ctx.rect(x, y, 52 * s, 20 * s);
+    ctx.fill();
+  }
+
+  function drawBackground(dt) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    if (feverT > 0) {
+      const h = (time * 80) % 360;
+      g.addColorStop(0, `hsl(${h},90%,86%)`);
+      g.addColorStop(1, `hsl(${(h + 60) % 360},90%,90%)`);
+    } else {
+      g.addColorStop(0, '#FFC8D6');
+      g.addColorStop(0.6, '#FFE3E3');
+      g.addColorStop(1, '#FFF2D9');
+    }
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // 해님
+    ctx.fillStyle = 'rgba(255,240,180,0.9)';
+    ctx.beginPath(); ctx.arc(W * 0.82, H * 0.2, 34 * unit, 0, 6.29); ctx.fill();
+
+    for (const c of clouds) {
+      c.x += c.v * dt; if (c.x > 1.15) c.x = -0.25;
+      drawCloud(c.x * W, c.y * H, c.s * unit);
+    }
+
+    // 언덕
+    const gy = H - 30 * unit;
+    ctx.fillStyle = '#A8E6CF';
+    ctx.beginPath(); ctx.moveTo(0, gy);
+    ctx.quadraticCurveTo(W * 0.25, gy - 30 * unit, W * 0.5, gy - 6 * unit);
+    ctx.quadraticCurveTo(W * 0.75, gy + 14 * unit, W, gy - 18 * unit);
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+    ctx.fillStyle = '#7FD3BE'; ctx.fillRect(0, H - 14 * unit, W, 14 * unit);
+    // 작은 꽃
+    for (let i = 0; i < 7; i++) {
+      const fx = ((i * 137) % 100) / 100 * W, fy = H - 20 * unit - (i % 3) * 5;
+      ctx.fillStyle = i % 2 ? '#FFFFFF' : '#FFB3C6';
+      for (let p = 0; p < 5; p++) { ctx.beginPath(); ctx.arc(fx + Math.cos(p * 1.256) * 4, fy + Math.sin(p * 1.256) * 4, 3, 0, 6.29); ctx.fill(); }
+      ctx.fillStyle = '#FFD34D'; ctx.beginPath(); ctx.arc(fx, fy, 2.4, 0, 6.29); ctx.fill();
+    }
+  }
+
+  function star(cx, cy, r1, r2, n = 5) {
+    ctx.beginPath();
+    for (let i = 0; i < n * 2; i++) {
+      const r = i % 2 ? r2 : r1, a = -Math.PI / 2 + i * Math.PI / n;
+      ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    }
+    ctx.closePath();
+  }
+
+  function drawBunny(x, y, s) {
+    const fur = FURS.find(f => f.id === save.fur) || FURS[0];
+    const hurt = player.hurt > 0, happy = player.happy > 0;
+    if (hurt && Math.floor(player.hurt * 12) % 2 === 0) ctx.globalAlpha = 0.45;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(player.tilt);
+    ctx.scale(s, s);
+    const bob = Math.sin(time * 6) * (state === 'play' ? 1.5 : 2.5);
+    ctx.lineWidth = 2.5; ctx.strokeStyle = '#5E3527'; ctx.lineJoin = 'round';
+
+    // 귀
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(side * 12, -78 + bob);
+      ctx.rotate(side * (0.18 + Math.sin(time * 3 + side) * 0.05) + (hurt ? side * 0.5 : 0));
+      ctx.fillStyle = fur.body;
+      ctx.beginPath(); ctx.ellipse(0, -16, 9, 24, 0, 0, 6.29); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#FFB3C6';
+      ctx.beginPath(); ctx.ellipse(0, -14, 4.5, 16, 0, 0, 6.29); ctx.fill();
+      ctx.restore();
+    }
+    // 몸
+    ctx.fillStyle = fur.body;
+    ctx.beginPath(); ctx.ellipse(0, -14, 30, 26, 0, 0, 6.29); ctx.fill(); ctx.stroke();
+    // 머리
+    ctx.beginPath(); ctx.arc(0, -50 + bob, 27, 0, 6.29); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = fur.shade;
+    ctx.beginPath(); ctx.ellipse(0, -38 + bob, 12, 7, 0, 0, 6.29); ctx.fill();
+
+    // 볼터치
+    ctx.fillStyle = 'rgba(255,140,170,0.55)';
+    ctx.beginPath(); ctx.ellipse(-16, -42 + bob, 6, 4, 0, 0, 6.29); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(16, -42 + bob, 6, 4, 0, 0, 6.29); ctx.fill();
+
+    // 눈
+    ctx.fillStyle = '#3B2119'; ctx.strokeStyle = '#3B2119';
+    const blink = blinkT < 0.12;
+    for (const side of [-1, 1]) {
+      const ex = side * 10, ey = -52 + bob;
+      ctx.beginPath();
+      if (hurt) { ctx.moveTo(ex + 4 * side, ey - 3); ctx.lineTo(ex - 3 * side, ey); ctx.lineTo(ex + 4 * side, ey + 3); ctx.lineWidth = 2.2; ctx.stroke(); }
+      else if (happy || blink) { ctx.arc(ex, ey + 1, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.lineWidth = 2.4; ctx.stroke(); }
+      else {
+        ctx.arc(ex, ey, 3.6, 0, 6.29); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + 1.2, ey - 1.3, 1.2, 0, 6.29); ctx.fill(); ctx.fillStyle = '#3B2119';
+      }
+    }
+    // 코와 입
+    ctx.fillStyle = '#F2577E';
+    ctx.beginPath(); ctx.ellipse(0, -44 + bob, 2.6, 2, 0, 0, 6.29); ctx.fill();
+    ctx.lineWidth = 1.8; ctx.strokeStyle = '#3B2119';
+    ctx.beginPath();
+    if (hurt) { ctx.arc(0, -36 + bob, 3, Math.PI * 1.15, Math.PI * 1.85); }
+    else { ctx.arc(-2.8, -41 + bob, 2.8, 0.1, Math.PI - 0.1); ctx.moveTo(5.6, -41 + bob); ctx.arc(2.8, -41 + bob, 2.8, 0.1, Math.PI - 0.1); }
+    ctx.stroke();
+
+    drawHat(bob);
+
+    // 바구니
+    ctx.lineWidth = 2.5; ctx.strokeStyle = '#5E3527';
+    ctx.fillStyle = '#E8A86B';
+    ctx.beginPath();
+    ctx.moveTo(-42, -18); ctx.lineTo(42, -18); ctx.lineTo(34, 14); ctx.quadraticCurveTo(0, 20, -34, 14); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(94,53,39,0.35)'; ctx.lineWidth = 1.5;
+    for (let i = -30; i <= 30; i += 12) { ctx.beginPath(); ctx.moveTo(i, -16); ctx.lineTo(i * 0.82, 14); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(-38, -4); ctx.lineTo(38, -4); ctx.stroke();
+    ctx.fillStyle = '#C98651'; ctx.strokeStyle = '#5E3527'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-46, -24, 92, 9, 5) : ctx.rect(-46, -24, 92, 9); ctx.fill(); ctx.stroke();
+    // 앞발
+    ctx.fillStyle = fur.body;
+    ctx.beginPath(); ctx.ellipse(-30, -22, 8, 6, 0, 0, 6.29); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(30, -22, 8, 6, 0, 0, 6.29); ctx.fill(); ctx.stroke();
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHat(bob) {
+    const h = save.hat;
+    ctx.lineWidth = 2; ctx.strokeStyle = '#5E3527';
+    if (h === 'ribbon') {
+      ctx.save(); ctx.translate(16, -74 + bob); ctx.rotate(0.3);
+      ctx.fillStyle = '#F2577E';
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-13, -8); ctx.lineTo(-13, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(13, -8); ctx.lineTo(13, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#C93A62'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, 6.29); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    } else if (h === 'flower') {
+      const cols = ['#FFB3C6', '#FFE7A0', '#C9B6FF', '#FFB3C6', '#A8E6CF'];
+      for (let i = 0; i < 5; i++) {
+        const a = Math.PI * (1.15 + i * 0.175), fx = Math.cos(a) * 26, fy = -50 + bob + Math.sin(a) * 26;
+        ctx.fillStyle = cols[i];
+        for (let p = 0; p < 5; p++) { ctx.beginPath(); ctx.arc(fx + Math.cos(p * 1.256) * 4.2, fy + Math.sin(p * 1.256) * 4.2, 3.6, 0, 6.29); ctx.fill(); }
+        ctx.fillStyle = '#FFD34D'; ctx.beginPath(); ctx.arc(fx, fy, 2.6, 0, 6.29); ctx.fill();
+      }
+    } else if (h === 'star') {
+      ctx.fillStyle = '#FFD34D'; star(-17, -68 + bob, 10, 4.5); ctx.fill(); ctx.stroke();
+    } else if (h === 'crown') {
+      ctx.fillStyle = '#FFD34D';
+      const cy = -76 + bob;
+      ctx.beginPath();
+      ctx.moveTo(-15, cy + 6); ctx.lineTo(-17, cy - 10); ctx.lineTo(-8, cy - 2); ctx.lineTo(0, cy - 14);
+      ctx.lineTo(8, cy - 2); ctx.lineTo(17, cy - 10); ctx.lineTo(15, cy + 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#F2577E'; ctx.beginPath(); ctx.arc(0, cy, 2.6, 0, 6.29); ctx.fill();
+    } else if (h === 'heart') {
+      ctx.fillStyle = 'rgba(242,87,126,0.55)'; ctx.strokeStyle = '#C93A62';
+      for (const side of [-1, 1]) {
+        const hx = side * 10, hy = -51 + bob;
+        ctx.beginPath();
+        ctx.moveTo(hx, hy + 6);
+        ctx.bezierCurveTo(hx - 10, hy - 1, hx - 6, hy - 9, hx, hy - 4);
+        ctx.bezierCurveTo(hx + 6, hy - 9, hx + 10, hy - 1, hx, hy + 6);
+        ctx.fill(); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(-3, -53 + bob); ctx.lineTo(3, -53 + bob); ctx.stroke();
+    }
+  }
+
+  function drawItems() {
+    for (const it of items) {
+      ctx.save();
+      ctx.translate(it.x, it.y); ctx.rotate(it.rot);
+      if (it.t.bad) { ctx.shadowColor = 'rgba(60,60,90,0.35)'; ctx.shadowBlur = 8; }
+      else if (it.k === 'star' || it.k === 'rainbow') { ctx.shadowColor = 'rgba(255,220,90,0.9)'; ctx.shadowBlur = 14; }
+      ctx.font = `${it.size}px ${EMOJI_FONT}`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(it.t.e, 0, 0);
+      ctx.restore();
+    }
+  }
+
+  function drawParts(dt) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (!p.text) p.vy += 300 * dt;
+      ctx.globalAlpha = Math.min(1, p.life / p.max * 1.6);
+      if (p.text) {
+        ctx.font = `${22 * unit}px "Jua", sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.strokeText(p.text, p.x, p.y);
+        ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
+      } else {
+        ctx.fillStyle = p.color; star(p.x, p.y, p.r, p.r * 0.45); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------- 루프 ----------
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    time += dt;
+    blinkT -= dt; if (blinkT < 0) blinkT = 2 + Math.random() * 3;
+
+    if (state === 'play') update(dt);
+    else if (state === 'menu' || state === 'over') {
+      player.tx = W / 2 + Math.sin(time * 0.8) * Math.min(80, W * 0.2);
+      player.x += (player.tx - player.x) * Math.min(1, dt * 3);
+    }
+
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * 10 * shake, (Math.random() - 0.5) * 10 * shake);
+    drawBackground(state === 'pause' ? 0 : dt);
+    drawItems();
+    drawBunny(player.x, player.y, unit);
+    drawParts(state === 'pause' ? 0 : dt);
+    ctx.restore();
+    requestAnimationFrame(frame);
+  }
+
+  function update(dt) {
+    const prev = player.x;
+    player.x += (player.tx - player.x) * Math.min(1, dt * 14);
+    player.tilt += (((player.x - prev) / Math.max(dt, 0.001)) * 0.0004 - player.tilt) * Math.min(1, dt * 10);
+    player.tilt = Math.max(-0.25, Math.min(0.25, player.tilt));
+    if (player.hurt > 0) player.hurt -= dt;
+    if (player.happy > 0) player.happy -= dt;
+    if (shake > 0) shake -= dt;
+    if (feverT > 0) { feverT -= dt; $('fever').hidden = feverT <= 0; }
+
+    spawnT -= dt;
+    if (spawnT <= 0) {
+      spawn();
+      spawnT = Math.max(0.3, 0.85 - level * 0.05) * (feverT > 0 ? 0.45 : 1) * (0.8 + Math.random() * 0.4);
+    }
+
+    const catchTop = player.y - 30 * unit, catchBot = player.y + 4 * unit, reach = 48 * unit;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      it.y += it.vy * dt;
+      it.rot += it.vr * dt;
+      if (it.k === 'bee') it.x = it.baseX + Math.sin(time * 4 + it.phase) * 30 * unit;
+      if (it.y >= catchTop && it.y <= catchBot && Math.abs(it.x - player.x) < reach) {
+        items.splice(i, 1);
+        catchItem(it);
+        if (state !== 'play') return;
+        continue;
+      }
+      if (it.y > H + it.size) {
+        items.splice(i, 1);
+        if (!it.t.bad && !it.t.life && !it.t.fever && combo > 0) { combo = 0; updateHud(); }
+      }
+    }
+  }
+
+  // ---------- 입력 ----------
+  function setTarget(clientX) {
+    const r = cv.getBoundingClientRect();
+    player.tx = Math.min(Math.max(clientX - r.left, 44 * unit), W - 44 * unit);
+  }
+  cv.addEventListener('pointerdown', (e) => { if (state === 'play') { setTarget(e.clientX); } });
+  cv.addEventListener('pointermove', (e) => { if (state === 'play') setTarget(e.clientX); });
+  window.addEventListener('keydown', (e) => {
+    if (state === 'play' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      player.tx = Math.min(Math.max(player.tx + (e.key === 'ArrowLeft' ? -60 : 60) * unit, 44 * unit), W - 44 * unit);
+      e.preventDefault();
+    }
+    if (e.key === 'Escape' || e.key === 'p') { if (state === 'play') pause(); else if (state === 'pause') resume(); }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pause(); });
+
+  // ---------- 메뉴 ----------
+  const screens = ['startScreen', 'pauseScreen', 'overScreen', 'shopScreen'];
+  let shopReturn = 'startScreen';
+  function show(id) { for (const s of screens) $(s).hidden = s !== id; }
+  function pause() { state = 'pause'; show('pauseScreen'); }
+  function resume() { state = 'play'; show(null); last = performance.now(); }
+  function toMenu() {
+    state = 'menu'; items = []; feverT = 0;
+    $('hud').hidden = true; $('combo').hidden = true; $('fever').hidden = true;
+    refreshBest(); show('startScreen');
+  }
+  function refreshBest() {
+    $('bestLine').textContent = save.best > 0 ? `최고 기록 ${save.best.toLocaleString('ko-KR')}점 · 모은 별 ⭐ ${save.stars}` : '별을 모아서 토끼를 예쁘게 꾸며 주세요!';
+  }
+
+  let shopTab = 'fur';
+  function openShop(from) { shopReturn = from; state = state === 'over' ? 'over' : 'menu'; $('hud').hidden = true; renderShop(); show('shopScreen'); }
+  function renderShop() {
+    $('wallet').textContent = '가진 별 ⭐ ' + save.stars;
+    $('tabFur').setAttribute('aria-selected', shopTab === 'fur');
+    $('tabHat').setAttribute('aria-selected', shopTab === 'hat');
+    const list = shopTab === 'fur' ? FURS : HATS;
+    const equipped = shopTab === 'fur' ? save.fur : save.hat;
+    const grid = $('shopGrid'); grid.innerHTML = '';
+    for (const it of list) {
+      const owned = save.owned.includes(it.id);
+      const b = document.createElement('button');
+      b.className = 'item' + (equipped === it.id ? ' on' : '') + (owned ? '' : ' locked');
+      b.id = 'shop-' + it.id;
+      const vis = shopTab === 'fur' ? `<span class="sw" style="background:${it.body}"></span>` : `<span class="ic">${it.ic}</span>`;
+      const tag = equipped === it.id ? '착용 중' : owned ? '입히기' : '⭐ ' + it.price;
+      b.innerHTML = `${vis}<span>${it.name}</span><span class="price">${tag}</span>`;
+      b.addEventListener('click', () => buy(it));
+      grid.appendChild(b);
+    }
+  }
+  function buy(it) {
+    const owned = save.owned.includes(it.id);
+    if (!owned) {
+      if (save.stars < it.price) { toast(`별이 ${it.price - save.stars}개 더 필요해요`); beep(220, 0.15, 'square', 0.06); return; }
+      save.stars -= it.price; save.owned.push(it.id);
+      toast(`${it.name}을(를) 샀어요!`);
+      beep(784, 0.1, 'triangle'); setTimeout(() => beep(1046, 0.18, 'triangle'), 90);
+      burst(player.x, player.y - 60 * unit, ['#FFD34D', '#F2577E', '#7FD3BE'], 16);
+    } else beep(660, 0.08, 'triangle');
+    if (shopTab === 'fur') save.fur = it.id; else save.hat = it.id;
+    player.happy = 0.6;
+    persist(); renderShop();
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 1600);
+  }
+
+  $('playBtn').addEventListener('click', startGame);
+  $('againBtn').addEventListener('click', startGame);
+  $('pauseBtn').addEventListener('click', pause);
+  $('resumeBtn').addEventListener('click', resume);
+  $('quitBtn').addEventListener('click', toMenu);
+  $('shopBtn1').addEventListener('click', () => openShop('startScreen'));
+  $('shopBtn2').addEventListener('click', () => openShop('overScreen'));
+  $('shopBack').addEventListener('click', () => {
+    if (shopReturn === 'overScreen') { state = 'over'; show('overScreen'); }
+    else toMenu();
+  });
+  $('tabFur').addEventListener('click', () => { shopTab = 'fur'; renderShop(); });
+  $('tabHat').addEventListener('click', () => { shopTab = 'hat'; renderShop(); });
+
+  window.addEventListener('resize', resize);
+  resize(); initClouds(); refreshBest();
+  player.x = W / 2;
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
